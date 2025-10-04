@@ -1,6 +1,5 @@
 from flask import request, jsonify
 from .algorithms.caesar import caesar_cipher
-from .algorithms.rot13 import rot13_cipher
 
 def register_routes(app):
     @app.route("/encrypt", methods=["POST"])
@@ -12,8 +11,8 @@ def register_routes(app):
 
         if method == "caesar":
             encrypted = caesar_cipher(text, shift)
-        elif method == "rot13":
-            encrypted = rot13_cipher(text)
+        elif method == "furkan":
+            encrypted = "300-500-300-500"
         else:
             return jsonify({"error": "Invalid method"}), 400
 
