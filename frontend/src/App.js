@@ -7,6 +7,9 @@ function App() {
   const [key, setKey] = useState("KEY");
   const [a, setA] = useState(5);
   const [b, setB] = useState(8);
+  const [x, setX]=useState(3)
+  const [ro,setRo]=useState(5)
+  const [kontrol,setKontrol]=useState(true)
   const [result, setResult] = useState("");
   const [error, setError] = useState("");
 
@@ -18,9 +21,14 @@ function App() {
 
       if (method === "caesar") body.shift = Number(shift);
       if (method === "vigenere") body.key = key;
+      if(method==="railfence")body.x=Number(x);
       if (method === "affine") {
         body.a = Number(a);
         body.b = Number(b);
+      }
+      if(method==="route"){
+        body.ro=Number(ro);
+        body.kontrol=Boolean(kontrol)
       }
 
       const res = await fetch("http://127.0.0.1:5000/encrypt", {
@@ -60,7 +68,9 @@ function App() {
           <option value="caesar">Caesar</option>
           <option value="vigenere">Vigenere</option>
           <option value="substitution">Substitution</option>
+          <option value="railfence">Rail Fence</option>
           <option value="affine">Affine</option>
+          <option value="route">Route</option>
         </select>
       </div>
 
@@ -87,6 +97,17 @@ function App() {
           />
         </div>
       )}
+      {method === "railfence" && (
+        <div style={{ marginTop: 8 }}>
+          <label>x: </label>
+          <input
+            type="number"
+            value={x}
+            onChange={(e) => setX(e.target.value)}
+            style={{ width: 60 }}
+          />
+        </div>
+      )}
 
       {method === "affine" && (
         <div style={{ marginTop: 8 }}>
@@ -102,6 +123,23 @@ function App() {
             type="number"
             value={b}
             onChange={(e) => setB(e.target.value)}
+            style={{ width: 60 }}
+          />
+        </div>
+      )}{method === "route" && (
+        <div style={{ marginTop: 8 }}>
+          <label>ro: </label>
+          <input
+            type="number"
+            value={ro}
+            onChange={(e) => setRo(e.target.value)}
+            style={{ width: 60, marginRight: 8 }}
+          />
+          <label>Saat Yönü: </label>
+          <input
+            type="checkbox"
+            checked={kontrol}
+            onChange={(e) => setKontrol(e.target.checked)}
             style={{ width: 60 }}
           />
         </div>
@@ -123,6 +161,7 @@ function App() {
           <pre>{result}</pre>
         </div>
       )}
+      
     </div>
   );
 }
