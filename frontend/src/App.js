@@ -7,9 +7,9 @@ function App() {
   const [key, setKey] = useState("KEY");
   const [a, setA] = useState(5);
   const [b, setB] = useState(8);
-  const [x, setX]=useState(3)
-  const [ro,setRo]=useState(5)
-  const [kontrol,setKontrol]=useState(true)
+  const [x, setX] = useState(3);
+  const [ro, setRo] = useState(5);
+  const [kontrol, setKontrol] = useState(true);
   const [result, setResult] = useState("");
   const [error, setError] = useState("");
 
@@ -18,17 +18,17 @@ function App() {
     setResult("");
     try {
       const body = { text, method };
-
       if (method === "caesar") body.shift = Number(shift);
       if (method === "vigenere") body.key = key;
-      if(method==="railfence")body.x=Number(x);
+      if (method === "columnar") body.key = key;
+      if (method === "railfence") body.x = Number(x);
       if (method === "affine") {
         body.a = Number(a);
         body.b = Number(b);
       }
-      if(method==="route"){
-        body.ro=Number(ro);
-        body.kontrol=Boolean(kontrol)
+      if (method === "route") {
+        body.ro = Number(ro);
+        body.kontrol = Boolean(kontrol);
       }
 
       const res = await fetch("http://127.0.0.1:5000/encrypt", {
@@ -71,6 +71,9 @@ function App() {
           <option value="railfence">Rail Fence</option>
           <option value="affine">Affine</option>
           <option value="route">Route</option>
+          <option value="columnar">Columnar</option>
+          <option value="polybius">Polybius</option>
+          <option value="pigpen">Pigpen</option>
         </select>
       </div>
 
@@ -86,7 +89,7 @@ function App() {
         </div>
       )}
 
-      {method === "vigenere" && (
+      {(method === "vigenere" || method === "columnar") && (
         <div style={{ marginTop: 8 }}>
           <label>Key: </label>
           <input
@@ -97,6 +100,7 @@ function App() {
           />
         </div>
       )}
+
       {method === "railfence" && (
         <div style={{ marginTop: 8 }}>
           <label>x: </label>
@@ -126,7 +130,9 @@ function App() {
             style={{ width: 60 }}
           />
         </div>
-      )}{method === "route" && (
+      )}
+
+      {method === "route" && (
         <div style={{ marginTop: 8 }}>
           <label>ro: </label>
           <input
@@ -140,7 +146,6 @@ function App() {
             type="checkbox"
             checked={kontrol}
             onChange={(e) => setKontrol(e.target.checked)}
-            style={{ width: 60 }}
           />
         </div>
       )}
@@ -161,7 +166,6 @@ function App() {
           <pre>{result}</pre>
         </div>
       )}
-      
     </div>
   );
 }

@@ -1,52 +1,65 @@
-def route_cipher(text, key, saatYonu=True):
-    satirlar = [list(text[i:i + key]) for i in range(0, len(text), key)]
-    son_satir_uzunlugu = len(satirlar[-1])
-    if son_satir_uzunlugu < key:
-        satirlar[-1] += ['*'] * (key - son_satir_uzunlugu)
+import math
 
-    satir_sayisi = len(satirlar)
-    sutun_sayisi = key
-    sifre = []
-
-    sol, sag = 0, sutun_sayisi - 1
-    ust, alt = 0, satir_sayisi - 1
-
-    while sol <= sag and ust <= alt:
-        if saatYonu:
-            for i in range(sol, sag + 1):
-                sifre.append(satirlar[ust][i])
-            ust += 1
-
-            for i in range(ust, alt + 1):
-                sifre.append(satirlar[i][sag])
-            sag -= 1
-
-            if ust <= alt:
-                for i in range(sag, sol - 1, -1):
-                    sifre.append(satirlar[alt][i])
-                alt -= 1
-
-            if sol <= sag:
-                for i in range(alt, ust - 1, -1):
-                    sifre.append(satirlar[i][sol])
-                sol += 1
+def route_cipher(text, n, clockwise=True):
+    rows = math.ceil(len(text) / n)
+    matrix = [['' for _ in range(n)] for _ in range(rows)]
+    idx = 0
+    for i in range(rows):
+        for j in range(n):
+            matrix[i][j] = text[idx] if idx < len(text) else 'X'
+            idx += 1
+    res = []
+    left, right, top, bottom = 0, n - 1, 0, rows - 1
+    while left <= right and top <= bottom:
+        if clockwise:
+            for i in range(left, right + 1):
+                res.append(matrix[top][i])
+            top += 1
+            for i in range(top, bottom + 1):
+                res.append(matrix[i][right])
+            right -= 1
+            for i in range(right, left - 1, -1):
+                res.append(matrix[bottom][i])
+            bottom -= 1
+            for i in range(bottom, top - 1, -1):
+                res.append(matrix[i][left])
+            left += 1
         else:
-            for i in range(ust, alt + 1):
-                sifre.append(satirlar[i][sol])
-            sol += 1
+            for i in range(top, bottom + 1):
+                res.append(matrix[i][left])
+            left += 1
+            for i in range(left, right + 1):
+                res.append(matrix[bottom][i])
+            bottom -= 1
+            for i in range(bottom, top - 1, -1):
+                res.append(matrix[i][right])
+            right -= 1
+            for i in range(right, left - 1, -1):
+                res.append(matrix[top][i])
+            top += 1
+    return "".join(res)
 
-            for i in range(sol, sag + 1):
-                sifre.append(satirlar[alt][i])
-            alt -= 1
-
-            if sol <= sag:
-                for i in range(alt, ust - 1, -1):
-                    sifre.append(satirlar[i][sag])
-                sag -= 1
-
-            if ust <= alt:
-                for i in range(sag, sol - 1, -1):
-                    sifre.append(satirlar[ust][i])
-                ust += 1
-
-    return ''.join(sifre)
+def route_decrypt(cipher, n, clockwise=True):
+    rows = math.ceil(len(cipher) / n)
+    matrix = [['' for _ in range(n)] for _ in range(rows)]
+    res, left, right, top, bottom, idx = [], n - 1, 0, 0, rows - 1, 0
+    result = [['' for _ in range(n)] for _ in range(rows)]
+    text = list(cipher)
+    left, right, top, bottom = 0, n - 1, 0, rows - 1
+    while left <= right and top <= bottom:
+        if clockwise:
+            for i in range(left, right + 1):
+                if idx < len(text): result[top][i] = text[idx]; idx += 1
+            top += 1
+            for i in range(top, bottom + 1):
+                if idx < len(text): result[i][right] = text[idx]; idx += 1
+            right -= 1
+            for i in range(right, left - 1, -1):
+                if idx < len(text): result[bottom][i] = text[idx]; idx += 1
+            bottom -= 1
+            for i in range(bottom, top - 1, -1):
+                if idx < len(text): result[i][left] = text[idx]; idx += 1
+            left += 1
+        else:
+            pass
+    return "".join("".join(row) for row in result)

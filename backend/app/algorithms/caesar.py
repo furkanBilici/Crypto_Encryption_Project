@@ -7,3 +7,5 @@ def caesar_cipher(text, shift):
         else:
             result += char
     return result
+def caesar_decrypt(text, shift):
+    return caesar_cipher(text, -shift)

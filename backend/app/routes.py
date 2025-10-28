@@ -5,6 +5,9 @@ from .algorithms.substitution import substitution_encrypt
 from .algorithms.affine import affine_encrypt
 from .algorithms.railfence import rail_fence_cipher
 from .algorithms.route import route_cipher
+from .algorithms.columnar import columnar_encrypt
+from .algorithms.polybius import polybius_encrypt
+from .algorithms.pigpen import pigpen_encrypt
 
 def register_routes(app):
     @app.route("/encrypt", methods=["POST"])
@@ -13,7 +16,7 @@ def register_routes(app):
         text = data.get("text", "")
         method = data.get("method", "")
         shift = data.get("shift", 3)
-        key = data.get("key", "KEY")  # vigenere için
+        key = data.get("key", "KEY")  # vigenere,columnar için
         a = data.get("a", 5)          # affine için
         b = data.get("b", 8)
         x=data.get("x",3)#railfnce icin
@@ -32,6 +35,12 @@ def register_routes(app):
             encrypted= rail_fence_cipher(text, x)
         elif method== "route":
             encrypted= route_cipher(text, ro, kontrol)
+        elif method== "columnar":
+            encrypted= columnar_encrypt(text, key)
+        elif method== "polybius":
+            encrypted=polybius_encrypt(text)
+        elif method== "pigpen":
+            encrypted=pigpen_encrypt(text)    
         else:
             return jsonify({"error": "Unknown encryption method"}), 400
 
