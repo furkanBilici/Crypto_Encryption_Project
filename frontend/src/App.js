@@ -1,8 +1,20 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import "./App.css";
 
 function App() {
+  // Kullanıcı ve Login State'leri
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [currentUser, setCurrentUser] = useState("");
+  const [usernameInput, setUsernameInput] = useState("");
+  const [passwordInput, setPasswordInput] = useState("");
+
+  // Mesajlaşma State'leri
+  const [receiver, setReceiver] = useState("");
   const [text, setText] = useState("");
   const [method, setMethod] = useState("caesar");
+  
+  // Algoritma Parametreleri
   const [shift, setShift] = useState(3);
   const [key, setKey] = useState("KEY");
   const [a, setA] = useState(5);
@@ -10,162 +22,218 @@ function App() {
   const [x, setX] = useState(3);
   const [ro, setRo] = useState(5);
   const [kontrol, setKontrol] = useState(true);
-  const [result, setResult] = useState("");
-  const [error, setError] = useState("");
 
-  const handleEncrypt = async () => {
-    setError("");
-    setResult("");
+  const [inbox, setInbox] = useState([]);
+  const [decryptedMessages, setDecryptedMessages] = useState({});
+
+  // --- LOGIN & REGISTER İŞLEMLERİ ---
+
+  const handleRegister = async () => {
+    if (!usernameInput || !passwordInput) {
+      alert("Kullanıcı adı ve şifre giriniz!");
+      return;
+    }
     try {
-      const body = { text, method };
-      if (method === "caesar") body.shift = Number(shift);
-      if (method === "vigenere") body.key = key;
-      if (method === "columnar") body.key = key;
-      if (method === "railfence") body.x = Number(x);
-      if (method === "affine") {
-        body.a = Number(a);
-        body.b = Number(b);
-      }
-      if (method === "route") {
-        body.ro = Number(ro);
-        body.kontrol = Boolean(kontrol);
-      }
-
-      const res = await fetch("http://127.0.0.1:5000/encrypt", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+      const res = await axios.post("http://localhost:5000/register", {
+        username: usernameInput,
+        password: passwordInput
       });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        setError(err.error || `Server returned ${res.status}`);
-        return;
-      }
-
-      const data = await res.json();
-      setResult(data.encrypted ?? JSON.stringify(data));
-    } catch (e) {
-      setError(e.message);
+      alert(res.data.message); // "Kayıt başarılı" mesajı
+    } catch (error) {
+      alert(error.response?.data?.error || "Kayıt başarısız.");
     }
   };
 
+  const handleLogin = async () => {
+    try {
+      const res = await axios.post("http://localhost:5000/login", {
+        username: usernameInput,
+        password: passwordInput
+      });
+      setCurrentUser(res.data.username);
+      setIsLoggedIn(true);
+      fetchInbox(res.data.username); // Giriş yapınca mesajları çek
+    } catch (error) {
+      alert(error.response?.data?.error || "Giriş başarısız.");
+    }
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setCurrentUser("");
+    setInbox([]);
+    setDecryptedMessages({});
+  };
+
+  // --- MESAJLAŞMA İŞLEMLERİ ---
+
+  const fetchInbox = async (user = currentUser) => {
+    if (!user) return;
+    try {
+      const res = await axios.get(`http://localhost:5000/get_inbox/${user}`);
+      setInbox(res.data);
+    } catch (error) {
+      console.error("Inbox hatası", error);
+    }
+  };
+
+  const handleSend = async () => {
+    if (!receiver || !text) {
+      alert("Alıcı ve mesaj alanları boş olamaz!");
+      return;
+    }
+
+    const payload = {
+      sender: currentUser,
+      receiver: receiver,
+      text: text,
+      method: method,
+      shift: Number(shift),
+      key: key,
+      a: Number(a),
+      b: Number(b),
+      x: Number(x),
+      ro: Number(ro),
+      kontrol: Boolean(kontrol)
+    };
+
+    try {
+      await axios.post("http://localhost:5000/send_message", payload);
+      alert("✅ Mesaj başarıyla gönderildi!");
+      setText(""); 
+    } catch (error) {
+      // BURADA Backend'den gelen hatayı (Kullanıcı yok) gösteriyoruz
+      alert("❌ HATA: " + (error.response?.data?.error || "Bilinmeyen hata"));
+    }
+  };
+
+  const handleDecryptRequest = async (msg) => {
+    let userKeyInput = "";
+    if (["vigenere", "columnar", "polybius", "pigpen"].includes(msg.method)) {
+      userKeyInput = prompt(`'${msg.method}' için ANAHTARI giriniz:`);
+      if (!userKeyInput) return;
+    }
+
+    try {
+      const res = await axios.post("http://localhost:5000/decrypt_message", {
+        cipher_text: msg.content,
+        method: msg.method,
+        key: userKeyInput,
+        params: msg.params
+      });
+      setDecryptedMessages(prev => ({ ...prev, [msg.id]: res.data.plaintext }));
+    } catch (error) {
+      alert("Şifre Çözülemedi! Anahtar yanlış.");
+    }
+  };
+
+  // --- ARAYÜZ ---
+
+  if (!isLoggedIn) {
+    return (
+      <div className="login-container">
+        <h1>🔐 Güvenli Mesajlaşma</h1>
+        <div className="login-box">
+          <input 
+            placeholder="Kullanıcı Adı"
+            value={usernameInput}
+            onChange={(e) => setUsernameInput(e.target.value)}
+          />
+          <input 
+            type="password"
+            placeholder="Şifre"
+            value={passwordInput}
+            onChange={(e) => setPasswordInput(e.target.value)}
+          />
+          <div className="login-buttons">
+            <button onClick={handleLogin} className="btn-primary">Giriş Yap</button>
+            <button onClick={handleRegister} className="btn-secondary">Kayıt Ol</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div style={{ padding: 30, fontFamily: "sans-serif" }}>
-      <h1>🔐 Crypto Encryption Project</h1>
+    <div className="app-container">
+      <header className="header">
+        <div className="user-info">
+          <h2>👤 {currentUser}</h2>
+          <span className="status-dot"></span>
+        </div>
+        <div>
+          <button className="refresh-btn" onClick={() => fetchInbox()}>↻ Yenile</button>
+          <button className="logout-btn" onClick={handleLogout}>Çıkış</button>
+        </div>
+      </header>
 
-      <textarea
-        rows={4}
-        cols={50}
-        placeholder="Enter text..."
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-      />
+      <div className="main-content">
+        <div className="card send-card">
+          <h3>Yeni Mesaj</h3>
+          <div className="form-group">
+            <label>Alıcı Kullanıcı Adı:</label>
+            <input 
+              value={receiver} 
+              onChange={(e) => setReceiver(e.target.value)} 
+              placeholder="Kullanıcı tam adını girin..." 
+            />
+          </div>
+          
+          <div className="form-group">
+            <label>Mesaj:</label>
+            <textarea value={text} onChange={(e) => setText(e.target.value)} rows={3} placeholder="Gizli mesaj..." />
+          </div>
 
-      <div style={{ marginTop: 10 }}>
-        <label>Algorithm: </label>
-        <select value={method} onChange={(e) => setMethod(e.target.value)}>
-          <option value="caesar">Caesar</option>
-          <option value="vigenere">Vigenere</option>
-          <option value="substitution">Substitution</option>
-          <option value="railfence">Rail Fence</option>
-          <option value="affine">Affine</option>
-          <option value="route">Route</option>
-          <option value="columnar">Columnar</option>
-          <option value="polybius">Polybius</option>
-          <option value="pigpen">Pigpen</option>
-        </select>
+          <div className="form-group">
+            <label>Şifreleme Yöntemi:</label>
+            <select value={method} onChange={(e) => setMethod(e.target.value)}>
+              <option value="caesar">Caesar</option>
+              <option value="vigenere">Vigenere</option>
+              <option value="substitution">Substitution</option>
+              <option value="affine">Affine</option>
+              <option value="railfence">Rail Fence</option>
+              <option value="route">Route</option>
+              <option value="columnar">Columnar</option>
+              <option value="polybius">Polybius</option>
+              <option value="pigpen">Pigpen</option>
+            </select>
+          </div>
+
+          {/* Dinamik Parametreler */}
+          <div className="params-area">
+             {method === "caesar" && <input type="number" placeholder="Shift" value={shift} onChange={e=>setShift(e.target.value)} />}
+             {(method === "vigenere" || method === "columnar") && <input type="text" placeholder="Gizli Anahtar" value={key} onChange={e=>setKey(e.target.value)} />}
+             {method === "affine" && <><input type="number" placeholder="a" value={a} onChange={e=>setA(e.target.value)} /><input type="number" placeholder="b" value={b} onChange={e=>setB(e.target.value)} /></>}
+             {method === "railfence" && <input type="number" placeholder="x" value={x} onChange={e=>setX(e.target.value)} />}
+             {method === "route" && <input type="number" placeholder="ro" value={ro} onChange={e=>setRo(e.target.value)} />}
+          </div>
+
+          <button className="send-btn" onClick={handleSend}>Gönder</button>
+        </div>
+
+        <div className="card inbox-card">
+          <h3>Gelen Kutusu ({inbox.length})</h3>
+          <div className="messages-list">
+            {inbox.length === 0 && <p className="no-msg">Henüz mesaj yok.</p>}
+            {inbox.map((msg) => (
+              <div key={msg.id} className="message-item">
+                <div className="msg-header">
+                  <span className="sender-badge">{msg.sender}</span>
+                  <span className="time">{msg.timestamp}</span>
+                </div>
+                {decryptedMessages[msg.id] ? (
+                   <div className="msg-content decrypted">✅ {decryptedMessages[msg.id]}</div>
+                ) : (
+                  <div className="msg-content encrypted">🔒 {msg.content} <br/><small>({msg.method})</small></div>
+                )}
+                {!decryptedMessages[msg.id] && (
+                  <button className="decrypt-btn" onClick={() => handleDecryptRequest(msg)}>Çöz</button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
-
-      {method === "caesar" && (
-        <div style={{ marginTop: 8 }}>
-          <label>Shift: </label>
-          <input
-            type="number"
-            value={shift}
-            onChange={(e) => setShift(e.target.value)}
-            style={{ width: 80 }}
-          />
-        </div>
-      )}
-
-      {(method === "vigenere" || method === "columnar") && (
-        <div style={{ marginTop: 8 }}>
-          <label>Key: </label>
-          <input
-            type="text"
-            value={key}
-            onChange={(e) => setKey(e.target.value)}
-            style={{ width: 120 }}
-          />
-        </div>
-      )}
-
-      {method === "railfence" && (
-        <div style={{ marginTop: 8 }}>
-          <label>x: </label>
-          <input
-            type="number"
-            value={x}
-            onChange={(e) => setX(e.target.value)}
-            style={{ width: 60 }}
-          />
-        </div>
-      )}
-
-      {method === "affine" && (
-        <div style={{ marginTop: 8 }}>
-          <label>a: </label>
-          <input
-            type="number"
-            value={a}
-            onChange={(e) => setA(e.target.value)}
-            style={{ width: 60, marginRight: 8 }}
-          />
-          <label>b: </label>
-          <input
-            type="number"
-            value={b}
-            onChange={(e) => setB(e.target.value)}
-            style={{ width: 60 }}
-          />
-        </div>
-      )}
-
-      {method === "route" && (
-        <div style={{ marginTop: 8 }}>
-          <label>ro: </label>
-          <input
-            type="number"
-            value={ro}
-            onChange={(e) => setRo(e.target.value)}
-            style={{ width: 60, marginRight: 8 }}
-          />
-          <label>Saat Yönü: </label>
-          <input
-            type="checkbox"
-            checked={kontrol}
-            onChange={(e) => setKontrol(e.target.checked)}
-          />
-        </div>
-      )}
-
-      <div style={{ marginTop: 12 }}>
-        <button onClick={handleEncrypt}>Encrypt</button>
-      </div>
-
-      {error && (
-        <div style={{ marginTop: 12, color: "red" }}>
-          <strong>Error:</strong> {error}
-        </div>
-      )}
-
-      {result && (
-        <div style={{ marginTop: 12 }}>
-          <h3>Encrypted Result:</h3>
-          <pre>{result}</pre>
-        </div>
-      )}
     </div>
   );
 }
