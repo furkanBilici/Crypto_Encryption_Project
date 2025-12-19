@@ -5,7 +5,6 @@ from datetime import datetime
 import os
 import json
 
-# --- SENİN ALGORİTMALARIN ---
 try:
     from algorithms.caesar import caesar_cipher, caesar_decrypt
     from algorithms.vigenere import vigenere_encrypt, vigenere_decrypt
@@ -28,13 +27,11 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
-# --- YENİ: KULLANICI TABLOSU ---
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
-    password = db.Column(db.String(50), nullable=False) # Basitlik için düz metin
+    password = db.Column(db.String(50), nullable=False) 
 
-# --- MESAJ TABLOSU ---
 class Message(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     sender = db.Column(db.String(50), nullable=False)
@@ -47,7 +44,6 @@ class Message(db.Model):
 with app.app_context():
     db.create_all()
 
-# --- ŞİFRELEME YÖNETİCİSİ ---
 def run_encryption(method, text, action, **kwargs):
     shift = int(kwargs.get('shift', 3) or 3)
     key = kwargs.get('key', 'KEY')
@@ -77,8 +73,6 @@ def run_encryption(method, text, action, **kwargs):
         return pigpen_encrypt(text) if action == "encrypt" else pigpen_decrypt(text)
     return text
 
-# --- YENİ: KULLANICI İŞLEMLERİ ---
-
 @app.route('/register', methods=['POST'])
 def register():
     data = request.json
@@ -106,24 +100,18 @@ def login():
         return jsonify({"error": "Kullanıcı adı veya şifre hatalı!"}), 401
 
 
-# --- MESAJ İŞLEMLERİ (GÜNCELLENDİ) ---
-
 @app.route('/send_message', methods=['POST'])
 def send_message():
     try:
         data = request.json
         sender = data.get('sender')
-        receiver = data.get('receiver') # Alıcı İSMİ geliyor
+        receiver = data.get('receiver')
         
-        # --- KRİTİK KONTROL ---
-        # Veritabanında bu isimde bir alıcı var mı?
         recipient_user = User.query.filter_by(username=receiver).first()
         
         if not recipient_user:
-            # EĞER KULLANICI YOKSA HATA DÖN VE DUR
             return jsonify({"status": "error", "error": f"'{receiver}' adında bir kullanıcı bulunamadı! Mesaj gönderilmedi."}), 404
 
-        # Eğer kullanıcı varsa şifrelemeye devam et
         text = data.get('text')
         method = data.get('method')
         
@@ -139,7 +127,6 @@ def send_message():
 
         encrypted_text = run_encryption(method, text, "encrypt", **params)
 
-        # Key'i silip diğer parametreleri sakla
         db_params = params.copy()
         if 'key' in db_params: del db_params['key']
         
