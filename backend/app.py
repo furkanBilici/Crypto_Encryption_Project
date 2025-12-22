@@ -15,8 +15,14 @@ try:
     from algorithms.columnar import columnar_encrypt, columnar_decrypt
     from algorithms.polybius import polybius_encrypt, polybius_decrypt
     from algorithms.pigpen import pigpen_encrypt, pigpen_decrypt
+    from algorithms.playfair import playfair_encrypt, playfair_decrypt
+    from algorithms.hill import hill_encrypt, hill_decrypt
+    from algorithms.vernam import vernam_encrypt, vernam_decrypt
+    from algorithms.aes_lib import aes_lib_encrypt, aes_lib_decrypt
+    from algorithms.aes_manual import aes_manual_encrypt, aes_manual_decrypt
+    from algorithms.des_manual import des_manual_encrypt, des_manual_decrypt
 except ImportError:
-    print("Algoritma dosyaları bulunamadı!")
+    pass
 
 app = Flask(__name__)
 CORS(app)
@@ -71,6 +77,19 @@ def run_encryption(method, text, action, **kwargs):
         return polybius_encrypt(text) if action == "encrypt" else polybius_decrypt(text)
     elif method == "pigpen":
         return pigpen_encrypt(text) if action == "encrypt" else pigpen_decrypt(text)
+    elif method == "playfair":
+        return playfair_encrypt(text, key) if action == "encrypt" else playfair_decrypt(text, key)
+    elif method == "hill":
+        return hill_encrypt(text, key) if action == "encrypt" else hill_decrypt(text, key)
+    elif method == "vernam":
+        return vernam_encrypt(text, key) if action == "encrypt" else vernam_decrypt(text, key)
+    elif method == "aes_lib":
+        return aes_lib_encrypt(text, key) if action == "encrypt" else aes_lib_decrypt(text, key)
+    elif method == "aes_manual":
+        return aes_manual_encrypt(text, key) if action == "encrypt" else aes_manual_decrypt(text, key)
+    elif method == "des_manual":
+        return des_manual_encrypt(text, key) if action == "encrypt" else des_manual_decrypt(text, key)
+    
     return text
 
 @app.route('/register', methods=['POST'])
@@ -108,7 +127,6 @@ def send_message():
         receiver = data.get('receiver')
         
         recipient_user = User.query.filter_by(username=receiver).first()
-        
         if not recipient_user:
             return jsonify({"status": "error", "error": f"'{receiver}' adında bir kullanıcı bulunamadı! Mesaj gönderilmedi."}), 404
 
@@ -167,15 +185,17 @@ def decrypt_message_endpoint():
         cipher_text = data.get('cipher_text')
         method = data.get('method')
         user_key = data.get('key')
+        
         stored_params = data.get('params', {}) 
         if isinstance(stored_params, str): stored_params = json.loads(stored_params)
         
         stored_params['key'] = user_key
+        
         decrypted_text = run_encryption(method, cipher_text, "decrypt", **stored_params)
         
         return jsonify({"status": "success", "plaintext": decrypted_text})
     except Exception as e:
-        return jsonify({"status": "error", "error": "Şifre çözülemedi."}), 400
+        return jsonify({"status": "error", "error": "Şifre çözülemedi veya anahtar hatalı."}), 400
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

@@ -196,6 +196,12 @@ function App() {
               <option value="columnar">Columnar</option>
               <option value="polybius">Polybius</option>
               <option value="pigpen">Pigpen</option>
+              <option value="playfair">Playfair</option>
+              <option value="hill">Hill (Key=4 harf örn: ABCD)</option>
+              <option value="vernam">Vernam</option>
+              <option value="aes_lib">AES (Lib)</option>
+              <option value="aes_manual">AES (Manual Sim)</option>
+              <option value="des_manual">DES (Manual Sim)</option>
             </select>
           </div>
 
