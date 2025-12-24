@@ -1,24 +1,27 @@
 def vigenere_encrypt(text, key):
-    result = []
     key = key.upper()
-    key_len = len(key)
-    for i, char in enumerate(text.upper()):
-        if char.isalpha():
-            shift = ord(key[i % key_len]) - ord('A')
-            result.append(chr((ord(char) - ord('A') + shift) % 26 + ord('A')))
-        else:
-            result.append(char)
-    return "".join(result)
-def vigenere_decrypt(text, key):
     result = ""
-    key = key.upper()
-    j = 0
+    key_index = 0
     for char in text:
         if char.isalpha():
-            shift = ord(key[j % len(key)]) - 65
-            base = 'A' if char.isupper() else 'a'
-            result += chr((ord(char) - ord(base) - shift) % 26 + ord(base))
-            j += 1
+            shift = ord(key[key_index % len(key)]) - 65
+            start = 65 if char.isupper() else 97
+            result += chr((ord(char) - start + shift) % 26 + start)
+            key_index += 1
+        else:
+            result += char
+    return result
+
+def vigenere_decrypt(text, key):
+    key = key.upper()
+    result = ""
+    key_index = 0
+    for char in text:
+        if char.isalpha():
+            shift = ord(key[key_index % len(key)]) - 65
+            start = 65 if char.isupper() else 97
+            result += chr((ord(char) - start - shift) % 26 + start)
+            key_index += 1
         else:
             result += char
     return result

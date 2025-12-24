@@ -1,31 +1,21 @@
 def vernam_encrypt(text, key):
     text = text.upper()
-    key = key.upper()
-    while len(key) < len(text):
-        key += key
-    key = key[:len(text)]
-    
-    cipher = ""
+    key = (key * (len(text)//len(key) + 1))[:len(text)].upper()
+    res = ""
     for t, k in zip(text, key):
         if t.isalpha():
-            shift = ord(k) - 65
-            cipher += chr((ord(t) - 65 + shift) % 26 + 65)
+            res += chr((ord(t) - 65 + ord(k) - 65) % 26 + 65)
         else:
-            cipher += t
-    return cipher
+            res += t
+    return res
 
 def vernam_decrypt(text, key):
     text = text.upper()
-    key = key.upper()
-    while len(key) < len(text):
-        key += key
-    key = key[:len(text)]
-    
-    plain = ""
+    key = (key * (len(text)//len(key) + 1))[:len(text)].upper()
+    res = ""
     for t, k in zip(text, key):
         if t.isalpha():
-            shift = ord(k) - 65
-            plain += chr((ord(t) - 65 - shift) % 26 + 65)
+            res += chr((ord(t) - 65 - (ord(k) - 65)) % 26 + 65)
         else:
-            plain += t
-    return plain
+            res += t
+    return res

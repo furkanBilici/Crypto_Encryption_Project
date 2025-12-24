@@ -1,55 +1,47 @@
 import numpy as np
 
-def text_to_numbers(text):
-    return [ord(char) - 65 for char in text.upper() if char.isalpha()]
+def text_to_nums(text):
+    return [ord(c)-65 for c in text.upper() if c.isalpha()]
 
-def numbers_to_text(numbers):
-    return "".join([chr(int(num) + 65) for num in numbers])
+def nums_to_text(nums):
+    return "".join([chr(int(n)+65) for n in nums])
 
-def get_key_matrix(key, n):
-    key_nums = text_to_numbers(key)
-    if len(key_nums) != n*n:
-        raise ValueError(f"Key uzunluğu {n*n} olmalı (Örn: 2x2 için 4 harf)")
-    return np.array(key_nums).reshape(n, n)
+def get_matrix(key, n):
+    nums = text_to_nums(key)
+    if len(nums) < n*n: nums += [0]*(n*n - len(nums)) 
+    return np.array(nums[:n*n]).reshape(n,n)
 
 def matrix_mod_inv(matrix, modulus):
     det = int(np.round(np.linalg.det(matrix)))
     det_inv = pow(det, -1, modulus)
-    matrix_modulus_inv = (
-        det_inv * np.round(det * np.linalg.inv(matrix)).astype(int) % modulus
-    )
-    return matrix_modulus_inv
+    matrix_inv = (det_inv * np.round(det * np.linalg.inv(matrix)).astype(int)) % modulus
+    return matrix_inv
 
 def hill_encrypt(text, key):
-    n = int(len(key)**0.5) 
-    key_matrix = get_key_matrix(key, n)
-    nums = text_to_numbers(text)
+    n = 2 if len(key) <= 4 else 3
+    key_matrix = get_matrix(key, n)
+    nums = text_to_nums(text)
+    while len(nums) % n != 0: nums.append(23) 
     
-    while len(nums) % n != 0:
-        nums.append(23)
-        
-    encrypted_nums = []
+    cipher_nums = []
     for i in range(0, len(nums), n):
-        vector = np.array(nums[i:i+n])
-        res = np.dot(key_matrix, vector) % 26
-        encrypted_nums.extend(res)
-        
-    return numbers_to_text(encrypted_nums)
+        vec = np.array(nums[i:i+n])
+        res = np.dot(key_matrix, vec) % 26
+        cipher_nums.extend(res)
+    return nums_to_text(cipher_nums)
 
 def hill_decrypt(text, key):
-    n = int(len(key)**0.5)
-    key_matrix = get_key_matrix(key, n)
-    
     try:
-        inv_key_matrix = matrix_mod_inv(key_matrix, 26)
-    except:
-        return "HATA: Bu anahtarın tersi alınamaz (Determinant mod 26 ile uyumsuz)."
-
-    nums = text_to_numbers(text)
-    decrypted_nums = []
-    for i in range(0, len(nums), n):
-        vector = np.array(nums[i:i+n])
-        res = np.dot(inv_key_matrix, vector) % 26
-        decrypted_nums.extend(res)
+        n = 2 if len(key) <= 4 else 3
+        key_matrix = get_matrix(key, n)
+        inv_matrix = matrix_mod_inv(key_matrix, 26)
         
-    return numbers_to_text(decrypted_nums)
+        nums = text_to_nums(text)
+        plain_nums = []
+        for i in range(0, len(nums), n):
+            vec = np.array(nums[i:i+n])
+            res = np.dot(inv_matrix, vec) % 26
+            plain_nums.extend(res)
+        return nums_to_text(plain_nums)
+    except:
+        return "HATA: Anahtarın tersi alınamadı."

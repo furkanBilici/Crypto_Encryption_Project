@@ -1,37 +1,33 @@
+import math
+
+def get_key_order(key):
+    return sorted(list(range(len(key))), key=lambda k: key[k])
+
 def columnar_encrypt(text, key):
-    while len(text) % len(key) != 0:
-        text += '*'
-    columns = {char: [] for char in key}
-    for i, char in enumerate(text):
-        column_key = key[i % len(key)]
-        columns[column_key].append(char)
-    sorted_key = sorted(key)
-    encrypted = []
-    for k in sorted_key:
-        encrypted.extend(columns[k])
-    return ''.join(encrypted)
+    order = get_key_order(key)
+    col_count = len(key)
+    row_count = math.ceil(len(text) / col_count)
+    
+    padded_text = text + "_" * (row_count * col_count - len(text))
+    grid = [padded_text[i:i+col_count] for i in range(0, len(padded_text), col_count)]
+    
+    cipher = ""
+    for index in order:
+        for row in grid:
+            cipher += row[index]
+    return cipher
 
-
-def columnar_decrypt(cipher, key):
-    n_cols = len(key)
-    n_rows = len(cipher) // n_cols
-    sorted_key = sorted(key)
+def columnar_decrypt(text, key):
+    order = get_key_order(key)
+    col_count = len(key)
+    row_count = math.ceil(len(text) / col_count)
     
-    # Hangi sütun hangi sırada geldiğini bulalım
-    order = {char: i for i, char in enumerate(sorted_key)}
-    reverse_order = sorted(range(n_cols), key=lambda i: order[key[i]])
-    
-    # Her sütun için karakterleri ayıralım
-    col_length = n_rows
-    columns = {}
-    index = 0
-    for char in sorted_key:
-        columns[char] = list(cipher[index:index + col_length])
-        index += col_length
-    
-    # Çözülmüş metni sırayla oluştur
-    plain = ''
-    for i in range(n_rows):
-        for char in key:
-            plain += columns[char][i]
-    return plain.replace('*', '')
+    grid = [['' for _ in range(col_count)] for _ in range(row_count)]
+    idx = 0
+    for index in order:
+        for r in range(row_count):
+            if idx < len(text):
+                grid[r][index] = text[idx]
+                idx += 1
+                
+    return "".join("".join(row) for row in grid).replace("_", "")

@@ -1,46 +1,25 @@
+
+chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+symbols = ["ᒧ", "⊔", "ᒪ", "⊐", "□", "⊏", "¬", "⊓", "Г", 
+           "ᒧ·", "⊔·", "ᒪ·", "⊐·", "□·", "⊏·", "¬·", "⊓·", "Г·", 
+           "V", "<", ">", "^", "V·", "<·", ">·", "^·"] 
+
 def pigpen_encrypt(text):
-    pigpen_map = {
-        'A': ["┌─", "│ ", "└─"], 'B': ["│ ", "│ ", "─┘"], 'C': ["─┐", "│ ", "─┘"],
-        'D': ["┌─", "● ", "└─"], 'E': ["│ ", "● ", "─┘"], 'F': ["─┐", "● ", "─┘"],
-        'G': ["┌─", "│ ", "● "], 'H': ["│ ", "│ ", "● "], 'I': ["─┐", "│ ", "● "],
-        'J': ["┌─", "● ", "● "], 'K': ["│ ", "● ", "● "], 'L': ["─┐", "● ", "● "],
-        'M': ["┌─", "● ", "└─"], 'N': ["│ ", "● ", "─┘"], 'O': ["─┐", "● ", "─┘"],
-        'P': ["┌─", "│ ", "└─"], 'Q': ["│ ", "│ ", "─┘"], 'R': ["─┐", "│ ", "─┘"],
-        'S': ["┌─", "● ", "● "], 'T': ["│ ", "● ", "● "], 'U': ["─┐", "● ", "● "],
-        'V': ["┌─", "● ", "└─"], 'W': ["│ ", "● ", "─┘"], 'X': ["─┐", "● ", "─┘"],
-        'Y': ["┌─", "│ ", "└─"], 'Z': ["│ ", "│ ", "─┘"],
-        ' ': ["  ", "  ", "  "]
-    }
-
-    lines = ["", "", ""]
-    for char in text.upper():
-        if char in pigpen_map:
-            for i in range(3):
-                lines[i] += pigpen_map[char][i] + "  "
+    text = text.upper()
+    res = ""
+    for char in text:
+        if char in chars:
+            res += symbols[chars.index(char)] + " "
         else:
-            for i in range(3):
-                lines[i] += "    "
-    return "\n".join(lines)
+            res += char
+    return res
 
-
-def pigpen_decrypt(symbol_lines):
-    pigpen_map = {
-        'A': ["┌─", "│ ", "└─"], 'B': ["│ ", "│ ", "─┘"], 'C': ["─┐", "│ ", "─┘"],
-        'D': ["┌─", "● ", "└─"], 'E': ["│ ", "● ", "─┘"], 'F': ["─┐", "● ", "─┘"],
-        'G': ["┌─", "│ ", "● "], 'H': ["│ ", "│ ", "● "], 'I': ["─┐", "│ ", "● "],
-        'J': ["┌─", "● ", "● "], 'K': ["│ ", "● ", "● "], 'L': ["─┐", "● ", "● "],
-        'M': ["┌─", "● ", "└─"], 'N': ["│ ", "● ", "─┘"], 'O': ["─┐", "● ", "─┘"],
-        'P': ["┌─", "│ ", "└─"], 'Q': ["│ ", "│ ", "─┘"], 'R': ["─┐", "│ ", "─┘"],
-        'S': ["┌─", "● ", "● "], 'T': ["│ ", "● ", "● "], 'U': ["─┐", "● ", "● "],
-        'V': ["┌─", "● ", "└─"], 'W': ["│ ", "● ", "─┘"], 'X': ["─┐", "● ", "─┘"],
-        'Y': ["┌─", "│ ", "└─"], 'Z': ["│ ", "│ ", "─┘"]
-    }
-
-    reverse_map = {"".join(v): k for k, v in pigpen_map.items()}
-    lines = symbol_lines.split("\n")
-    cols = len(lines[0]) // 4
-    text = ""
-    for i in range(cols):
-        pattern = "".join([line[i*4:i*4+2] for line in lines])
-        text += reverse_map.get(pattern, "?")
-    return text
+def pigpen_decrypt(text):
+    tokens = text.split(" ")
+    res = ""
+    for t in tokens:
+        if t in symbols:
+            res += chars[symbols.index(t)]
+        else:
+            res += "" 
+    return res

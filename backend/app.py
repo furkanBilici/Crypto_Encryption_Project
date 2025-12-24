@@ -21,6 +21,7 @@ try:
     from algorithms.aes_lib import aes_lib_encrypt, aes_lib_decrypt
     from algorithms.aes_manual import aes_manual_encrypt, aes_manual_decrypt
     from algorithms.des_manual import des_manual_encrypt, des_manual_decrypt
+    from algorithms.rsa import generate_rsa_keypair, rsa_hybrid_encrypt, rsa_hybrid_decrypt
 except ImportError:
     pass
 
@@ -37,6 +38,8 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
     password = db.Column(db.String(50), nullable=False) 
+    public_key = db.Column(db.Text, nullable=True)  
+    private_key = db.Column(db.Text, nullable=True) 
 
 class Message(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -92,6 +95,7 @@ def run_encryption(method, text, action, **kwargs):
     
     return text
 
+
 @app.route('/register', methods=['POST'])
 def register():
     data = request.json
@@ -101,10 +105,17 @@ def register():
     if User.query.filter_by(username=username).first():
         return jsonify({"error": "Bu kullanıcı adı zaten alınmış!"}), 400
     
-    new_user = User(username=username, password=password)
+    priv_key, pub_key = generate_rsa_keypair()
+
+    new_user = User(
+        username=username, 
+        password=password,
+        public_key=pub_key,
+        private_key=priv_key
+    )
     db.session.add(new_user)
     db.session.commit()
-    return jsonify({"message": "Kayıt başarılı! Şimdi giriş yapabilirsiniz."})
+    return jsonify({"message": "Kayıt başarılı! RSA anahtarları oluşturuldu."})
 
 @app.route('/login', methods=['POST'])
 def login():
@@ -125,14 +136,13 @@ def send_message():
         data = request.json
         sender = data.get('sender')
         receiver = data.get('receiver')
+        text = data.get('text')
+        method = data.get('method')
         
         recipient_user = User.query.filter_by(username=receiver).first()
         if not recipient_user:
             return jsonify({"status": "error", "error": f"'{receiver}' adında bir kullanıcı bulunamadı! Mesaj gönderilmedi."}), 404
 
-        text = data.get('text')
-        method = data.get('method')
-        
         params = {
             'shift': data.get('shift'),
             'key': data.get('key'),
@@ -143,7 +153,21 @@ def send_message():
             'kontrol': data.get('kontrol')
         }
 
-        encrypted_text = run_encryption(method, text, "encrypt", **params)
+        encrypted_text = ""
+
+        if method == "rsa_hybrid":
+            if not recipient_user.public_key:
+                return jsonify({"status": "error", "error": "Alıcının RSA anahtarı yok."}), 400
+           
+            encrypted_text = rsa_hybrid_encrypt(text, recipient_user.public_key)
+        else:
+            encrypted_text = run_encryption(method, text, "encrypt", **params)
+
+        print("\n" + "="*40)
+        print(f"[YENİ MESAJ] {sender} -> {receiver}")
+        print(f"Yöntem: {method}")
+        print(f"Şifreli İçerik: {encrypted_text[:50]}..." if len(encrypted_text) > 50 else f"Şifreli İçerik: {encrypted_text}")
+        print("="*40 + "\n")
 
         db_params = params.copy()
         if 'key' in db_params: del db_params['key']
@@ -161,6 +185,7 @@ def send_message():
         return jsonify({"status": "success", "message": "Mesaj şifrelendi ve gönderildi."})
 
     except Exception as e:
+        print(f"HATA: {str(e)}")
         return jsonify({"status": "error", "error": str(e)}), 500
 
 @app.route('/get_inbox/<username>', methods=['GET'])
@@ -185,13 +210,23 @@ def decrypt_message_endpoint():
         cipher_text = data.get('cipher_text')
         method = data.get('method')
         user_key = data.get('key')
+        requesting_user_name = data.get('username') 
+
+        decrypted_text = ""
+
+        if method == "rsa_hybrid":
+            user = User.query.filter_by(username=requesting_user_name).first()
+            if not user or not user.private_key:
+                return jsonify({"status": "error", "error": "Private key bulunamadı."}), 400
+            
+            decrypted_text = rsa_hybrid_decrypt(cipher_text, user.private_key)
         
-        stored_params = data.get('params', {}) 
-        if isinstance(stored_params, str): stored_params = json.loads(stored_params)
-        
-        stored_params['key'] = user_key
-        
-        decrypted_text = run_encryption(method, cipher_text, "decrypt", **stored_params)
+        else:
+            stored_params = data.get('params', {}) 
+            if isinstance(stored_params, str): stored_params = json.loads(stored_params)
+            stored_params['key'] = user_key
+            
+            decrypted_text = run_encryption(method, cipher_text, "decrypt", **stored_params)
         
         return jsonify({"status": "success", "plaintext": decrypted_text})
     except Exception as e:
