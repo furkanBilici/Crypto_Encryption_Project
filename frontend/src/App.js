@@ -157,7 +157,7 @@ function App() {
   if (!isLoggedIn) {
     return (
       <div className="login-container">
-        <h1>🔐 Crypto Pro (Full)</h1>
+        <h1>🔐 Kriptoloji Ödevi 🔐</h1>
         <div className="login-box">
           <input placeholder="Kullanıcı Adı" value={usernameInput} onChange={(e) => setUsernameInput(e.target.value)}/>
           <input type="password" placeholder="Şifre" value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)}/>
