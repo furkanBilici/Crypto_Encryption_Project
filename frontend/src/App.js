@@ -1,20 +1,20 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import axios from "axios";
 import "./App.css";
 
 function App() {
-  // --- STATE TANIMLAMALARI ---
   const [currentUser, setCurrentUser] = useState("");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [usernameInput, setUsernameInput] = useState("");
   const [passwordInput, setPasswordInput] = useState("");
 
-  // Mesaj Gönderme Alanı
+  // Mesaj & Dosya State'leri
   const [receiver, setReceiver] = useState("");
   const [text, setText] = useState("");
+  const [file, setFile] = useState(null); // Dosya objesi
   const [method, setMethod] = useState("caesar");
   
-  // Algoritma Parametreleri
+  // Parametreler
   const [shift, setShift] = useState(3);
   const [key, setKey] = useState("KEY");
   const [a, setA] = useState(5);
@@ -23,31 +23,45 @@ function App() {
   const [ro, setRo] = useState(5);
   const [kontrol, setKontrol] = useState(true);
 
-  // Gelen Kutusu
   const [inbox, setInbox] = useState([]);
   const [decryptedMessages, setDecryptedMessages] = useState({});
+  const [lastProcessTime, setLastProcessTime] = useState(null); // Son işlem süresi
 
-  // --- FONKSİYONLAR ---
+  // --- YARDIMCI: RANDOM ANAHTAR OLUŞTURUCU ---
+  const generateRandomKey = () => {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%";
+    let result = "";
+    for (let i = 0; i < 16; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setKey(result);
+  };
+
+  // --- YARDIMCI: DOSYAYI BASE64'E ÇEVİR ---
+  const fileToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
+  // --- API FONKSİYONLARI ---
 
   const handleRegister = async () => {
-    if (!usernameInput || !passwordInput) { alert("Bilgileri giriniz"); return; }
+    if (!usernameInput || !passwordInput) return alert("Bilgileri giriniz");
     try {
       const res = await axios.post("http://localhost:5000/register", { username: usernameInput, password: passwordInput });
       alert(res.data.message);
-    } catch (error) { alert(error.response?.data?.error || "Hata"); }
+    } catch (error) { alert("Hata oluştu"); }
   };
 
   const handleLogin = async () => {
     try {
       const res = await axios.post("http://localhost:5000/login", { username: usernameInput, password: passwordInput });
-      setCurrentUser(res.data.username);
-      setIsLoggedIn(true);
-      fetchInbox(res.data.username);
+      setCurrentUser(res.data.username); setIsLoggedIn(true); fetchInbox(res.data.username);
     } catch (error) { alert("Giriş başarısız"); }
-  };
-
-  const handleLogout = () => {
-    setIsLoggedIn(false); setCurrentUser(""); setInbox([]); setDecryptedMessages({});
   };
 
   const fetchInbox = async (user = currentUser) => {
@@ -59,22 +73,38 @@ function App() {
   };
 
   const handleSend = async () => {
-    if (!receiver || !text) { alert("Alıcı ve mesaj zorunlu!"); return; }
+    if (!receiver) return alert("Alıcı giriniz!");
+    if (!text && !file) return alert("Mesaj veya Dosya seçiniz!");
+
+    let contentToSend = text;
+    let isFileToSend = false;
+    let filenameToSend = null;
+
+    if (file) {
+      try {
+        contentToSend = await fileToBase64(file);
+        isFileToSend = true;
+        filenameToSend = file.name;
+      } catch (err) {
+        alert("Dosya okunamadı!");
+        return;
+      }
+    }
 
     const payload = {
-      sender: currentUser,
-      receiver: receiver,
-      text: text,
+      sender: currentUser, receiver: receiver,
+      text: contentToSend,
       method: method,
-      shift: Number(shift),
-      key: key,
-      a: Number(a), b: Number(b), x: Number(x), ro: Number(ro), kontrol: Boolean(kontrol)
+      is_file: isFileToSend,
+      filename: filenameToSend,
+      shift: Number(shift), key: key, a: Number(a), b: Number(b), x: Number(x), ro: Number(ro), kontrol: Boolean(kontrol)
     };
 
     try {
-      await axios.post("http://localhost:5000/send_message", payload);
-      alert("✅ Mesaj Gönderildi!");
-      setText("");
+      const res = await axios.post("http://localhost:5000/send_message", payload);
+      setLastProcessTime(res.data.time);
+      alert(`✅ Gönderildi! (Süre: ${res.data.time.toFixed(4)} sn)`);
+      setText(""); setFile(null);
     } catch (error) {
       alert("HATA: " + (error.response?.data?.error || "Gönderilemedi"));
     }
@@ -82,14 +112,14 @@ function App() {
 
   const handleDecryptRequest = async (msg) => {
     let userKeyInput = "";
+    
+    // Key istemesi gereken metodlar listesi
+    const methodsRequiringKey = ["vigenere", "columnar", "playfair", "hill", "vernam", "aes_lib", "aes_manual", "des_manual"];
 
-    // RSA Hybrid dışındaki metodlar için anahtar soruyoruz
-    // RSA'da sistem otomatik kendi private key'ini kullanacak
     if (msg.method !== "rsa_hybrid") {
-       // Key gerektiren metodlar
-       if (["vigenere", "columnar", "polybius", "pigpen", "playfair", "hill", "vernam", "aes_lib", "aes_manual", "des_manual"].includes(msg.method)) {
-         userKeyInput = prompt(`'${msg.method}' çözmek için ANAHTAR giriniz:`);
-         if (!userKeyInput) return;
+       if (methodsRequiringKey.includes(msg.method)) {
+         userKeyInput = prompt(`'${msg.method}' için ANAHTAR giriniz:`);
+         if (userKeyInput === null) return;
        }
     }
 
@@ -99,20 +129,35 @@ function App() {
         method: msg.method,
         key: userKeyInput,
         params: msg.params,
-        username: currentUser // RSA için gerekli (kimin private key'i kullanılacak?)
+        username: currentUser
       });
-      setDecryptedMessages(prev => ({ ...prev, [msg.id]: res.data.plaintext }));
+
+      let content = res.data.plaintext;
+      if (msg.is_file) {
+        content = (
+          <div>
+            <p>✅ Dosya Çözüldü!</p>
+            <a href={res.data.plaintext} download={msg.filename || "cozulmus_dosya"}>
+              📥 İndirmek İçin Tıkla: {msg.filename}
+            </a>
+            <br/>
+            <small>Süre: {res.data.time.toFixed(4)}s</small>
+          </div>
+        );
+      } else {
+        content = <span>{res.data.plaintext} <small style={{color:'#888', fontSize:'0.7em'}}>({res.data.time.toFixed(4)}s)</small></span>;
+      }
+      
+      setDecryptedMessages(prev => ({ ...prev, [msg.id]: content }));
     } catch (error) {
-      alert("Şifre Çözülemedi! (Anahtar yanlış veya yetkiniz yok)");
+      alert("Şifre Çözülemedi!");
     }
   };
-
-  // --- EKRAN TASARIMI ---
 
   if (!isLoggedIn) {
     return (
       <div className="login-container">
-        <h1>🔐 Kripto Projesi</h1>
+        <h1>🔐 Crypto Pro (Full)</h1>
         <div className="login-box">
           <input placeholder="Kullanıcı Adı" value={usernameInput} onChange={(e) => setUsernameInput(e.target.value)}/>
           <input type="password" placeholder="Şifre" value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)}/>
@@ -120,7 +165,6 @@ function App() {
             <button onClick={handleLogin} className="btn-primary">Giriş Yap</button>
             <button onClick={handleRegister} className="btn-secondary">Kayıt Ol</button>
           </div>
-          <small style={{display:'block', marginTop:10, color:'#666'}}>*Kayıt olunca RSA anahtarlarınız otomatik üretilir.</small>
         </div>
       </div>
     );
@@ -132,25 +176,37 @@ function App() {
         <h2>👤 {currentUser}</h2>
         <div>
           <button className="refresh-btn" onClick={() => fetchInbox()}>↻ Yenile</button>
-          <button className="logout-btn" onClick={handleLogout}>Çıkış</button>
+          <button className="logout-btn" onClick={() => window.location.reload()}>Çıkış</button>
         </div>
       </header>
 
       <div className="main-content">
         {/* SOL: GÖNDERME */}
         <div className="card send-card">
-          <h3>Yeni Mesaj</h3>
+          <h3>Yeni İleti</h3>
+          
           <div className="form-group">
-            <label>Alıcı:</label>
-            <input value={receiver} onChange={(e) => setReceiver(e.target.value)} placeholder="Kime?" />
+             <input value={receiver} onChange={(e) => setReceiver(e.target.value)} placeholder="Alıcı Kullanıcı Adı" />
           </div>
-          <div className="form-group">
-            <label>Mesaj:</label>
-            <textarea value={text} onChange={(e) => setText(e.target.value)} rows={3} />
+
+          <div className="form-group" style={{border:'1px dashed #ccc', padding:10, borderRadius:5}}>
+            <label>Mesaj VEYA Dosya:</label>
+            <textarea 
+              value={text} 
+              onChange={(e) => setText(e.target.value)} 
+              disabled={file !== null} 
+              placeholder={file ? "Dosya seçildi, metin kilitli." : "Metin giriniz..."} 
+              rows={3} 
+            />
+            <div style={{marginTop:5, display:'flex', alignItems:'center', gap:10}}>
+              <input type="file" onChange={(e) => setFile(e.target.files[0])} />
+              {file && <button onClick={()=>setFile(null)} style={{background:'red', color:'white', border:'none', cursor:'pointer'}}>X İptal</button>}
+            </div>
           </div>
 
           <div className="form-group">
-            <label>Yöntem:</label>
+            <label>Yöntem Seçiniz:</label>
+            {/* BURASI DÜZELTİLDİ: TÜM LİSTE EKLENDİ */}
             <select value={method} onChange={(e) => setMethod(e.target.value)}>
               <optgroup label="Modern & Hibrit (Ödev)">
                 <option value="rsa_hybrid">RSA Hybrid (Otomatik Key)</option>
@@ -175,61 +231,57 @@ function App() {
             </select>
           </div>
 
-          {/* Dinamik Parametreler */}
           <div className="params-area">
-            {/* RSA İÇİN ÖZEL MESAJ */}
-            {method === "rsa_hybrid" ? (
-                <div style={{color: 'green', fontSize: '0.9rem', padding: '5px'}}>
-                    ℹ️ <strong>Otomatik Şifreleme:</strong> Mesaj, alıcının Public Key'i ile şifrelenecek. Manuel anahtar gerekmez.
+             {/* Key Gerektirenler İçin RANDOM Butonu */}
+             {["vigenere", "columnar", "playfair", "hill", "vernam", "aes_lib", "aes_manual", "des_manual"].includes(method) && (
+                <div style={{display:'flex', width:'100%', gap:5}}>
+                  <input type="text" placeholder="Anahtar" value={key} onChange={e=>setKey(e.target.value)} style={{flex:1}}/>
+                  <button onClick={generateRandomKey} style={{background:'#6f42c1', color:'white', border:'none', cursor:'pointer', borderRadius:3}}>🎲 Random</button>
                 </div>
-            ) : (
-                <>
-                   {/* DİĞERLERİ İÇİN INPUTLAR */}
-                   {method === "caesar" && <input type="number" placeholder="Shift" value={shift} onChange={e=>setShift(e.target.value)} />}
-                   
-                   {/* Key Gerektirenler */}
-                   {["vigenere", "columnar", "playfair", "hill", "vernam", "aes_lib", "aes_manual", "des_manual"].includes(method) && (
-                      <input type="text" placeholder="Gizli Anahtar (Key)" value={key} onChange={e=>setKey(e.target.value)} style={{flex:1}}/>
-                   )}
-                   
-                   {method === "affine" && <><input type="number" placeholder="a" value={a} onChange={e=>setA(e.target.value)} /><input type="number" placeholder="b" value={b} onChange={e=>setB(e.target.value)} /></>}
-                   {method === "railfence" && <input type="number" placeholder="x" value={x} onChange={e=>setX(e.target.value)} />}
-                   {method === "route" && <input type="number" placeholder="ro" value={ro} onChange={e=>setRo(e.target.value)} />}
-                </>
-            )}
+             )}
+             
+             {/* Diğer Parametreler */}
+             {method === "caesar" && <input type="number" value={shift} onChange={e=>setShift(e.target.value)} placeholder="Shift"/>}
+             {method === "affine" && <><input type="number" placeholder="a" value={a} onChange={e=>setA(e.target.value)} /><input type="number" placeholder="b" value={b} onChange={e=>setB(e.target.value)} /></>}
+             {method === "railfence" && <input type="number" placeholder="x" value={x} onChange={e=>setX(e.target.value)} />}
+             {method === "route" && <input type="number" placeholder="ro" value={ro} onChange={e=>setRo(e.target.value)} />}
           </div>
 
-          <button className="send-btn" onClick={handleSend}>Şifrele ve Gönder</button>
+          <button className="send-btn" onClick={handleSend}>
+            {file ? "📁 Dosyayı Şifrele ve Gönder" : "✉️ Mesajı Şifrele ve Gönder"}
+          </button>
+          
+          {lastProcessTime && <p style={{textAlign:'center', fontSize:'0.8em', color:'green'}}>Son işlem: {lastProcessTime.toFixed(5)} saniye</p>}
         </div>
 
         {/* SAĞ: GELEN KUTUSU */}
         <div className="card inbox-card">
           <h3>Gelen Kutusu</h3>
           <div className="messages-list">
-            {inbox.length === 0 && <p className="no-msg">Mesaj yok.</p>}
-            {inbox.map((msg) => (
-              <div key={msg.id} className="message-item">
-                <div className="msg-header">
-                  <span className="sender-badge">{msg.sender}</span>
-                  <span className="method-badge">{msg.method}</span>
-                  <span className="time">{msg.timestamp}</span>
-                </div>
-                
-                {decryptedMessages[msg.id] ? (
-                   <div className="msg-content decrypted">✅ {decryptedMessages[msg.id]}</div>
-                ) : (
-                  <div className="msg-content encrypted">
-                    🔒 {msg.content.substring(0, 40)}...
-                  </div>
-                )}
+             {inbox.length === 0 && <p className="no-msg">Mesaj yok.</p>}
+             {inbox.map((msg) => (
+               <div key={msg.id} className="message-item">
+                 <div className="msg-header">
+                   <span className="sender-badge">{msg.sender}</span>
+                   <span className="method-badge">{msg.method}</span>
+                   <span style={{fontSize:'0.7em', color:'#555', marginLeft:5}}>⏱ {msg.process_time.toFixed(4)}s</span>
+                 </div>
+                 
+                 {decryptedMessages[msg.id] ? (
+                    <div className="msg-content decrypted">{decryptedMessages[msg.id]}</div>
+                 ) : (
+                   <div className="msg-content encrypted">
+                     {msg.is_file ? <span>📎 <strong>ŞİFRELİ DOSYA:</strong> {msg.filename}</span> : <span>🔒 {msg.content.substring(0,30)}...</span>}
+                   </div>
+                 )}
 
-                {!decryptedMessages[msg.id] && (
-                  <button className="decrypt-btn" onClick={() => handleDecryptRequest(msg)}>
-                    {msg.method === "rsa_hybrid" ? "🔓 RSA ile Çöz (Otomatik)" : "🔑 Anahtar Gir ve Çöz"}
-                  </button>
-                )}
-              </div>
-            ))}
+                 {!decryptedMessages[msg.id] && (
+                   <button className="decrypt-btn" onClick={() => handleDecryptRequest(msg)}>
+                     {msg.method === "rsa_hybrid" ? "🔓 Çöz" : "🔑 Anahtar Gir & Çöz"}
+                   </button>
+                 )}
+               </div>
+             ))}
           </div>
         </div>
       </div>
